@@ -1,0 +1,2 @@
+-r requirements.txt
+qdrant-client[fastebed]>=1.14.2
