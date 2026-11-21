@@ -19,11 +19,12 @@
 
 ## 로컬 실행 및 문서 API 권한
 
-저장소 루트에서 의존성을 설치한 뒤 새 Django 서명 키를 환경 변수에 설정합니다. 배포 환경에서는 별도로 생성한 키를 비밀 저장소에 보관하고, 여러 프로세스가 같은 키를 읽도록 구성합니다. 기존 설정에 공개됐던 개발 키는 교체합니다.
+저장소 루트에서 의존성을 설치한 뒤 `.env.example`을 `.env`로 복사하고 새 Django 서명 키를 저장합니다. Django는 이 프로젝트 루트의 `.env`를 자동으로 읽으며, 이미 설정된 프로세스 환경변수는 우선 적용합니다. `.env`는 Git에서 제외됩니다. 배포 환경에서는 별도로 생성한 키를 비밀 저장소에 보관하고, 여러 프로세스가 같은 키를 읽도록 구성합니다. 기존 설정에 공개됐던 개발 키는 교체합니다.
 
 ```powershell
 python -m pip install -r requirements-dev.txt
-$env:DJANGO_SECRET_KEY = (python -c "import secrets; print(secrets.token_urlsafe(48))")
+Copy-Item .env.example .env
+python -c "from dotenv import set_key; import secrets; set_key('.env', 'DJANGO_SECRET_KEY', secrets.token_urlsafe(48))"
 python manage.py migrate
 python manage.py createsuperuser
 python manage.py runserver
@@ -33,4 +34,4 @@ python manage.py runserver
 
 운영 환경에서는 DJANGO_ALLOWED_HOSTS에 실제 호스트 이름을 쉼표로 구분해 설정합니다. DEBUG는 기본적으로 꺼져 있습니다. Django가 직접 HTTPS를 처리할 때는 DJANGO_SECURE_HTTPS=1로 SSL 리디렉션과 보안 쿠키를 활성화합니다. 프록시에서 HTTPS를 종료한다면 실제 구성에 맞춰 HTTPS와 보안 쿠키를 설정한 뒤 python manage.py check --deploy로 확인합니다.
 
-위에서 생성한 DJANGO_SECRET_KEY 환경 변수로 python -m pytest를 실행합니다.
+프로젝트 루트의 `.env`를 준비한 뒤 python -m pytest를 실행합니다.
