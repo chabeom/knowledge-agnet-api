@@ -25,6 +25,7 @@ from documents.views import (
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+    path("api-auth/", include("rest_framework.urls")),
     path("api/documents/", include("documents.urls")),
     path("", DocumentListCreateView.as_view(), name="document-list-create"),
     path("<int:pk>/", DocumentDetailView.as_view(), name="document-detail"),
