@@ -10,22 +10,34 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
+import os
 from pathlib import Path
+
+from django.core.exceptions import ImproperlyConfigured
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
+SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "")
+if len(SECRET_KEY) < 50 or SECRET_KEY.startswith("django-insecure-"):
+    raise ImproperlyConfigured("Set DJANGO_SECRET_KEY to a new random value of at least 50 characters.")
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-v+z)3$m8xc3y8135+oq!yf_zc91g%bi%o+#0iu(q%8wh4)qo^@"
+DEBUG = os.environ.get("DJANGO_DEBUG") == "1"
+ALLOWED_HOSTS = [
+    host.strip()
+    for host in os.environ.get("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1,[::1]").split(",")
+    if host.strip()
+]
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+SECURE_SSL_REDIRECT = os.environ.get("DJANGO_SECURE_HTTPS") == "1"
+SESSION_COOKIE_SECURE = SECURE_SSL_REDIRECT
+CSRF_COOKIE_SECURE = SECURE_SSL_REDIRECT
 
-ALLOWED_HOSTS = []
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": ("rest_framework.authentication.SessionAuthentication",),
+    "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
+}
 
 
 # Application definition

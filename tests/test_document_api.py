@@ -1,4 +1,5 @@
 import pytest
+from django.contrib.auth.models import Permission
 from rest_framework import status
 from rest_framework.test import APIClient
 
@@ -8,8 +9,14 @@ pytestmark = pytest.mark.django_db
 
 
 @pytest.fixture
-def api_client():
-    return APIClient()
+def api_client(django_user_model):
+    user = django_user_model.objects.create_user(username="document-editor")
+    user.user_permissions.set(
+        Permission.objects.filter(content_type__app_label="documents", content_type__model="document")
+    )
+    client = APIClient()
+    client.force_authenticate(user=user)
+    return client
 
 
 @pytest.fixture
@@ -82,3 +89,40 @@ def test_delete_document(api_client, document):
 
     assert response.status_code == status.HTTP_204_NO_CONTENT
     assert Document.objects.count() == 0
+
+
+@pytest.mark.parametrize("list_path,detail_path", [("/api/documents/", "/api/documents/{id}/"), ("/", "/{id}/")])
+@pytest.mark.parametrize("authenticated", [False, True])
+def test_document_routes_deny_users_without_permissions(
+    django_user_model, document, list_path, detail_path, authenticated
+):
+    client = APIClient()
+    if authenticated:
+        client.force_authenticate(user=django_user_model.objects.create_user(username="unprivileged"))
+
+    detail_url = detail_path.format(id=document.id)
+    payload = {"title": "unauthorized change", "content": "blocked"}
+    assert client.get(list_path).status_code == status.HTTP_403_FORBIDDEN
+    assert client.post(list_path, payload, format="json").status_code == status.HTTP_403_FORBIDDEN
+    assert client.get(detail_url).status_code == status.HTTP_403_FORBIDDEN
+    assert client.put(detail_url, payload, format="json").status_code == status.HTTP_403_FORBIDDEN
+    assert client.patch(detail_url, payload, format="json").status_code == status.HTTP_403_FORBIDDEN
+    assert client.delete(detail_url).status_code == status.HTTP_403_FORBIDDEN
+    document.refresh_from_db()
+    assert document.title == "Git 브랜치 전략"
+    assert Document.objects.count() == 1
+
+
+def test_view_permission_does_not_grant_write_access(django_user_model, document):
+    user = django_user_model.objects.create_user(username="document-reader")
+    user.user_permissions.add(
+        Permission.objects.get(content_type__app_label="documents", codename="view_document")
+    )
+    client = APIClient()
+    client.force_authenticate(user=user)
+
+    detail_url = f"/api/documents/{document.id}/"
+    assert client.get("/api/documents/").status_code == status.HTTP_200_OK
+    assert client.get(detail_url).status_code == status.HTTP_200_OK
+    assert client.delete(detail_url).status_code == status.HTTP_403_FORBIDDEN
+    assert Document.objects.count() == 1
